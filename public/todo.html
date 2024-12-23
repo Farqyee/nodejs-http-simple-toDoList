@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+
+<head>
+	<link rel="stylesheet" href="/style.css" />
+	<link
+		rel="stylesheet"
+		href="https://cdn.datatables.net/2.1.8/css/dataTables.dataTables.min.css"
+	/>
+	<link
+		rel="stylesheet"
+		href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+	/>
+	<title>ToDo APP</title>
+</head>
+
+<body>
+	<div id="add-modal" class="modal">
+		<div class="modal-content" id="add-modal-content">
+			<h2>Add Task</h2>
+			<form id="form-add">
+				<input type="text" id="name-add" required />
+				<label for="name-add">Task </label>
+				<div class="modal-buttons">
+					<button class="modal-cancel" type="button" onclick="hideModal()">
+						Cancel
+					</button>
+					<button class="modal-submit" type="submit">Submit</button>
+				</div>
+			</form>
+		</div>
+	</div>
+	<div id="edit-modal" class="modal">
+		<div class="modal-content" id="edit-modal-content">
+			<h2>Edit Task</h2>
+			<form id="form-edit">
+				<input type="text" id="name-edit" required />
+				<label for="name-edit">Task </label>
+				<div class="modal-buttons">
+					<button class="modal-cancel" type="button" onclick="hideEditModal()">
+						Cancel
+					</button>
+					<button class="modal-submit" type="submit">Submit</button>
+				</div>
+			</form>
+		</div>
+	</div>
+	<div id="to-do" class="card">
+		<button class="big-button actionButton" id="add-button">
+			Add Task <i class="fa-solid fa-plus right"></i>
+		</button>
+		<table id="to-do-tables" class="table display" style="width: 100%">
+			<thead>
+				<tr>
+					<th class="no-box">No</th>
+					<th>Task</th>
+					<th>User</th>
+					<th class="button-box">Action</th>
+				</tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+	</div>
+	<script src="https://code.jquery.com/jquery-3.7.1.js"></script>
+	<script src="https://cdn.datatables.net/2.1.8/js/dataTables.min.js"></script>
+	<script>
+		const datatable = new DataTable("#to-do-tables");
+		const modal = document.getElementById("add-modal");
+		const editModal = document.getElementById("edit-modal");
+		const addButton = document.getElementById("add-button");
+		const modalContent = document.getElementById("add-modal-content");
+		const editModalContent = document.getElementById("edit-modal-content");
+		const addForm = document.getElementById("form-add");
+		const editForm = document.getElementById("form-edit");
+		const table = document.getElementById("to-do-tables");
+		const username = document.cookie.split("=")[1];
+		let _element;
+		let todoData;
+		modal.addEventListener("click", (event) => hideModal(event));
+		addButton.addEventListener("click", (event) => showModal(event));
+		modalContent.addEventListener("click", (event) => event.stopPropagation());
+		editModal.addEventListener("click", (event) => hideEditModal(event));
+		editModalContent.addEventListener("click", (event) =>
+			event.stopPropagation()
+		);
+		window.onload = generateList();
+		async function generateList() {
+			todoData = await getTodo();
+			let indexing = 1;
+			todoData.forEach((element) => {
+				//if use table.insertRow() maka dataTable tidak akan merender data yang baru sebagai bagian dari datatable
+				datatable.row
+					.add([
+						`${indexing}.`,
+						element.task,
+						element.username,
+						`<button class="actionButton" data-elements='${JSON.stringify(
+							element
+						)}' onclick="showEditModal(this)">
+						<i class="fa fa-pencil"></i>
+						</button>
+						<button class="actionButton" data-elements='${JSON.stringify(
+							element
+						)}' onclick="deleteTask(this)">
+						<i class="fa fa-trash"></i>
+						</button>`,
+					])
+					.draw(false);
+				indexing++;
+			});
+		}
+		function hideModal() {
+			event.preventDefault();
+			addForm.reset();
+			modal.classList.remove("show");
+		}
+		function showModal() {
+			event.preventDefault();
+			modal.classList.add("show");
+		}
+		addForm.addEventListener("submit", (e) => {
+			e.preventDefault();
+			const taskName = document.getElementById("name-add").value;
+			const data = {
+				username: username,
+				task: taskName,
+			};
+			addTask(data);
+		});
+		async function addTask(data) {
+			try {
+				const response = await fetch("/todo", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(data),
+				});
+				if (response.status == 200) {
+					alert("Task Added");
+					addForm.reset();
+					modal.classList.remove("show");
+					datatable.clear();
+					generateList();
+				}
+			} catch (error) {
+				console.log(error);
+			}
+		}
+		//EDIT Function
+		function hideEditModal() {
+			event.preventDefault();
+			editForm.reset();
+			editModal.classList.remove("show");
+		}
+		function showEditModal(data) {
+			_element = JSON.parse(data.getAttribute("data-elements"));
+			document.getElementById("name-edit").value = _element.task;
+			editModal.classList.add("show");
+		}
+		editForm.addEventListener("submit", (e) => {
+			e.preventDefault();
+			const taskName = document.getElementById("name-edit").value;
+			const data = {
+				_id: _element._id,
+				username: username,
+				task: taskName,
+			};
+			editTask(data);
+		});
+		async function editTask(data) {
+			try {
+				const response = await fetch("/todo", {
+					method: "PUT",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(data),
+				});
+				if (response.status == 200) {
+					alert("Task Updated");
+					editForm.reset();
+					editModal.classList.remove("show");
+					datatable.clear();
+					generateList();
+				} else {
+					throw new Error(response.message);
+				}
+			} catch (error) {
+				console.log(error);
+			}
+		}
+		async function deleteTask(data) {
+			const _element = JSON.parse(data.getAttribute("data-elements"));
+			const dataTodo = {
+				_id: _element._id,
+				username: _element.username,
+			};
+			try {
+				const response = await fetch("/todo", {
+					method: "DELETE",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(dataTodo),
+				});
+				if (response.status != 200) {
+					throw new Error(JSON.parse(response.statusText));
+				}
+				alert("task Deleted");
+				datatable.clear();
+				generateList();
+			} catch (error) {
+				alert(`Error : ${error.message}`);
+			}
+		}
+		async function getTodo() {
+			try {
+				const response = await fetch("/getTodo");
+				if (response.status == 200) {
+					return response.json();
+				} else {
+					throw new Error(response.status);
+				}
+			} catch (e) {
+				console.log(e);
+			}
+		}
+	</script>
+</body>
