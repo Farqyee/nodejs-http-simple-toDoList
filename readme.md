@@ -48,4 +48,3 @@ A simple task management application built with Node.js and MongoDB.
 
 ## Contributing
 Contributions are welcome! Feel free to create a pull request.
-```
